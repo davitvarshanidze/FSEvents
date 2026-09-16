@@ -24,10 +24,10 @@ public:
         bool isDirectory;
     };
 
-    explicit FileSystemListener(const std::filesystem::path& directory);
+    explicit FileSystemListener(const std::filesystem::path &directory);
     ~FileSystemListener();
 
-    const std::filesystem::path& Directory() const;
+    const std::filesystem::path &Directory() const;
     std::vector<FileEvent> Poll();
 
 private:

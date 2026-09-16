@@ -12,28 +12,28 @@ void Stop(int)
     running = 0;
 }
 
-const char* Name(
+const char *Name(
     FileSystemListener::ChangeType type)
 {
     switch (type)
     {
-        case FileSystemListener::ChangeType::Created:
-            return "CREATED";
+    case FileSystemListener::ChangeType::Created:
+        return "CREATED";
 
-        case FileSystemListener::ChangeType::Deleted:
-            return "DELETED";
+    case FileSystemListener::ChangeType::Deleted:
+        return "DELETED";
 
-        case FileSystemListener::ChangeType::Renamed:
-            return "RENAMED";
+    case FileSystemListener::ChangeType::Renamed:
+        return "RENAMED";
 
-        case FileSystemListener::ChangeType::Modified:
-            return "MODIFIED";
+    case FileSystemListener::ChangeType::Modified:
+        return "MODIFIED";
     }
 
     return "UNKNOWN";
 }
 
-int main(int argc, char** argv)
+int main(int argc, char **argv)
 {
     std::signal(SIGINT, Stop);
 
@@ -51,7 +51,7 @@ int main(int argc, char** argv)
 
         while (running)
         {
-            for (const auto& event :
+            for (const auto &event :
                  listener.Poll())
             {
                 std::cout
@@ -80,7 +80,7 @@ int main(int argc, char** argv)
                 std::chrono::milliseconds(100));
         }
     }
-    catch (const std::exception& e)
+    catch (const std::exception &e)
     {
         std::cerr
             << "Error: "

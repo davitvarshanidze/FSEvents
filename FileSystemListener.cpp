@@ -32,18 +32,15 @@ struct FileSystemListener::Impl
             return S_ISDIR(info.st_mode);
         }
 
-        bool Changed(const Entry& other) const
+        bool Changed(const Entry &other) const
         {
-            // Directory timestamps change when files inside change,
-            // so don't report the directory itself as modified.
             if (IsDirectory())
                 return false;
 
-            return
-                info.st_size != other.info.st_size ||
-                info.st_mode != other.info.st_mode ||
-                info.st_mtimespec.tv_sec != other.info.st_mtimespec.tv_sec ||
-                info.st_mtimespec.tv_nsec != other.info.st_mtimespec.tv_nsec;
+            return info.st_size != other.info.st_size ||
+                   info.st_mode != other.info.st_mode ||
+                   info.st_mtimespec.tv_sec != other.info.st_mtimespec.tv_sec ||
+                   info.st_mtimespec.tv_nsec != other.info.st_mtimespec.tv_nsec;
         }
     };
 
@@ -60,7 +57,7 @@ struct FileSystemListener::Impl
 
     bool started = false;
 
-    explicit Impl(const fs::path& path)
+    explicit Impl(const fs::path &path)
         : directory(fs::canonical(path))
     {
         if (!fs::is_directory(directory))
@@ -81,7 +78,7 @@ struct FileSystemListener::Impl
                 dispatch_sync_f(
                     queue,
                     nullptr,
-                    [](void*) {});
+                    [](void *) {});
 
             FSEventStreamRelease(stream);
         }
@@ -90,7 +87,7 @@ struct FileSystemListener::Impl
             dispatch_release(queue);
     }
 
-    static Entry Read(const fs::path& path)
+    static Entry Read(const fs::path &path)
     {
         Entry entry;
 
@@ -111,7 +108,7 @@ struct FileSystemListener::Impl
     {
         Snapshot result;
 
-        for (const auto& item :
+        for (const auto &item :
              fs::recursive_directory_iterator(directory))
         {
             result.emplace(
@@ -124,14 +121,14 @@ struct FileSystemListener::Impl
 
     static void Callback(
         ConstFSEventStreamRef,
-        void* context,
+        void *context,
         size_t count,
-        void*,
+        void *,
         const FSEventStreamEventFlags flags[],
         const FSEventStreamEventId[]) noexcept
     {
-        auto& self =
-            *static_cast<Impl*>(context);
+        auto &self =
+            *static_cast<Impl *>(context);
 
         self.dirty.store(
             true,
@@ -168,7 +165,7 @@ struct FileSystemListener::Impl
             throw std::runtime_error(
                 "Could not create path");
 
-        const void* values[] = {path};
+        const void *values[] = {path};
 
         CFArrayRef paths =
             CFArrayCreate(
@@ -215,19 +212,18 @@ struct FileSystemListener::Impl
     }
 
     static std::vector<FileEvent> Diff(
-        const Snapshot& oldSnapshot,
-        const Snapshot& newSnapshot)
+        const Snapshot &oldSnapshot,
+        const Snapshot &newSnapshot)
     {
         std::vector<FileEvent> events;
 
         std::set<fs::path> oldUsed;
         std::set<fs::path> newUsed;
 
-        // Files that still have the same path.
-        for (const auto& pair : newSnapshot)
+        for (const auto &pair : newSnapshot)
         {
-            const fs::path& path = pair.first;
-            const Entry& current = pair.second;
+            const fs::path &path = pair.first;
+            const Entry &current = pair.second;
 
             auto old = oldSnapshot.find(path);
 
@@ -240,12 +236,10 @@ struct FileSystemListener::Impl
             if (old->second.Identity() != current.Identity() ||
                 old->second.Changed(current))
             {
-                events.push_back({
-                    ChangeType::Modified,
-                    path,
-                    std::nullopt,
-                    current.IsDirectory()
-                });
+                events.push_back({ChangeType::Modified,
+                                  path,
+                                  std::nullopt,
+                                  current.IsDirectory()});
             }
         }
 
@@ -254,29 +248,28 @@ struct FileSystemListener::Impl
         std::map<Id, std::vector<fs::path>> oldIds;
         std::map<Id, std::vector<fs::path>> newIds;
 
-        for (const auto& pair : oldSnapshot)
+        for (const auto &pair : oldSnapshot)
         {
-            const fs::path& path = pair.first;
-            const Entry& entry = pair.second;
+            const fs::path &path = pair.first;
+            const Entry &entry = pair.second;
 
             if (oldUsed.count(path) == 0)
                 oldIds[entry.Identity()].push_back(path);
         }
 
-        for (const auto& pair : newSnapshot)
+        for (const auto &pair : newSnapshot)
         {
-            const fs::path& path = pair.first;
-            const Entry& entry = pair.second;
+            const fs::path &path = pair.first;
+            const Entry &entry = pair.second;
 
             if (newUsed.count(path) == 0)
                 newIds[entry.Identity()].push_back(path);
         }
 
-        // Same inode + different path = rename.
-        for (const auto& pair : oldIds)
+        for (const auto &pair : oldIds)
         {
-            const Id& id = pair.first;
-            const auto& oldPaths = pair.second;
+            const Id &id = pair.first;
+            const auto &oldPaths = pair.second;
 
             auto found = newIds.find(id);
 
@@ -287,54 +280,46 @@ struct FileSystemListener::Impl
                 found->second.size() != 1)
                 continue;
 
-            const fs::path& oldPath =
+            const fs::path &oldPath =
                 oldPaths.front();
 
-            const fs::path& newPath =
+            const fs::path &newPath =
                 found->second.front();
 
             oldUsed.insert(oldPath);
             newUsed.insert(newPath);
 
-            events.push_back({
-                ChangeType::Renamed,
-                newPath,
-                oldPath,
-                newSnapshot.at(newPath).IsDirectory()
-            });
+            events.push_back({ChangeType::Renamed,
+                              newPath,
+                              oldPath,
+                              newSnapshot.at(newPath).IsDirectory()});
         }
 
-        // Deleted files.
-        for (const auto& pair : oldSnapshot)
+        for (const auto &pair : oldSnapshot)
         {
-            const fs::path& path = pair.first;
-            const Entry& entry = pair.second;
+            const fs::path &path = pair.first;
+            const Entry &entry = pair.second;
 
             if (oldUsed.count(path) == 0)
             {
-                events.push_back({
-                    ChangeType::Deleted,
-                    path,
-                    std::nullopt,
-                    entry.IsDirectory()
-                });
+                events.push_back({ChangeType::Deleted,
+                                  path,
+                                  std::nullopt,
+                                  entry.IsDirectory()});
             }
         }
 
-        // Created files.
-        for (const auto& pair : newSnapshot)
+        for (const auto &pair : newSnapshot)
         {
-            const fs::path& path = pair.first;
-            const Entry& entry = pair.second;
+            const fs::path &path = pair.first;
+            const Entry &entry = pair.second;
 
             if (newUsed.count(path) == 0)
             {
-                events.push_back({
-                    ChangeType::Created,
-                    path,
-                    std::nullopt,
-                    entry.IsDirectory()
-                });
+                events.push_back({ChangeType::Created,
+                                  path,
+                                  std::nullopt,
+                                  entry.IsDirectory()});
             }
         }
 
@@ -342,9 +327,8 @@ struct FileSystemListener::Impl
     }
 };
 
-
 FileSystemListener::FileSystemListener(
-    const fs::path& directory)
+    const fs::path &directory)
     : m_impl(std::make_unique<Impl>(directory))
 {
     m_impl->Start();
@@ -352,13 +336,11 @@ FileSystemListener::FileSystemListener(
 
 FileSystemListener::~FileSystemListener() = default;
 
-
-const fs::path&
+const fs::path &
 FileSystemListener::Directory() const
 {
     return m_impl->directory;
 }
-
 
 std::vector<FileSystemListener::FileEvent>
 FileSystemListener::Poll()
@@ -392,10 +374,8 @@ FileSystemListener::Poll()
 
         return events;
     }
-    catch (const fs::filesystem_error&)
+    catch (const fs::filesystem_error &)
     {
-        // Something disappeared while scanning.
-        // Try again next Poll().
         m_impl->dirty.store(
             true,
             std::memory_order_relaxed);
